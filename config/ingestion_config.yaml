@@ -1,0 +1,36 @@
+framework:
+  name: enterprise-data-quality-framework
+  environment: development
+
+sources:
+  sample_erp:
+    source_system: SAMPLE_ERP
+    dataset: customers
+    enabled: true
+
+    file:
+      format: csv
+      delimiter: ","
+      encoding: utf-8
+      has_header: true
+
+    schema:
+      expected_columns:
+        - customer_id
+        - first_name
+        - last_name
+        - email
+        - country
+        - updated_at
+
+    ingestion:
+      write_mode: APPEND
+      expected_frequency: daily
+      expected_start_time: "06:00"
+      empty_file_alert_threshold: 3
+
+    validation:
+      fail_on_schema_mismatch: true
+      fail_on_empty_overwrite: true
+      allow_empty_append: true
+      create_empty_tables_on_first_ingestion: true
