@@ -1,36 +1,219 @@
+
+# ============================================================
+# ENTERPRISE DATA QUALITY FRAMEWORK
+# INGESTION CONFIGURATION
+# ============================================================
+
 framework:
   name: enterprise-data-quality-framework
   environment: development
+  timezone: Europe/Rome
+
+# ============================================================
+# GLOBAL DEFAULTS
+# ============================================================
+
+defaults:
+
+  file:
+    format: csv
+    encoding: utf-8
+    delimiter: ","
+    header: true
+    quote: '"'
+    escape: '"'
+    multiline: false
+    null_values:
+      - ""
+      - "NULL"
+      - "null"
+      - "NaN"
+
+  ingestion:
+    write_mode: APPEND
+    expected_frequency: daily
+    expected_start_time: "06:00"
+    criticality: MEDIUM
+
+  schema_validation:
+    case_sensitive: false
+    column_order_sensitive: false
+    allow_extra_columns: false
+    missing_columns_action: QUARANTINE
+    extra_columns_action: QUARANTINE
+
+  empty_file:
+    zero_byte_action: QUARANTINE
+    header_only_action: SKIP
+    alert_threshold: 3
+    threshold_type: CONSECUTIVE
+    reset_counter_on_valid_file: true
+
+  primary_key_policy:
+    allow_nulls: false
+    deduplicate_within_batch: false
+    duplicate_across_batches: QUARANTINE
+
+  audit_columns:
+    - name: _source_system
+      expression: SOURCE_SYSTEM
+
+    - name: _source_table
+      expression: SOURCE_TABLE
+
+    - name: _ingestion_ts
+      expression: CURRENT_TIMESTAMP
+
+    - name: _ingestion_run_id
+      expression: RUN_ID
+
+    - name: _waste_status
+      literal: new
+
+# ============================================================
+# MONITORING AND ALERTING
+# ============================================================
+
+monitoring:
+
+  enabled: true
+
+  run_log_table: dq_monitoring.ingestion_run_log
+  state_table: dq_monitoring.ingestion_state
+  alert_table: dq_monitoring.alert_log
+
+  counters:
+    track_empty_files: true
+    track_missing_files: true
+    track_schema_errors: true
+    track_consecutive_failures: true
+
+  notifications:
+    console:
+      enabled: true
+
+    email:
+      enabled: false
+
+    teams:
+      enabled: false
+
+# ============================================================
+# SOURCE TABLE CONFIGURATIONS
+# ============================================================
 
 sources:
-  sample_erp:
-    source_system: SAMPLE_ERP
-    dataset: customers
+
+  SAP_VBAK:
+
     enabled: true
 
-    file:
-      format: csv
-      delimiter: ","
-      encoding: utf-8
-      has_header: true
+    flow_id: sap_vbak_daily_ingestion
+    job_id: SAP_ORCHESTRATOR
 
-    schema:
-      expected_columns:
-        - customer_id
-        - first_name
-        - last_name
-        - email
-        - country
-        - updated_at
+    source_system: SAP
+    source_table: VBAK
+
+    criticality: HIGH
+
+    paths:
+      input: /transmission_dev/raw/sap/vbak/
+      quarantine: /transmission_dev/waste/sap/bronze__vbak/
+
+    file:
+      pattern: "*.csv"
 
     ingestion:
       write_mode: APPEND
       expected_frequency: daily
       expected_start_time: "06:00"
-      empty_file_alert_threshold: 3
 
-    validation:
-      fail_on_schema_mismatch: true
-      fail_on_empty_overwrite: true
-      allow_empty_append: true
-      create_empty_tables_on_first_ingestion: true
+    targets:
+      bronze_table: bronze_sap.vbak
+      silver_table: silver_sap.vbak
+      gold_table: gold_sap.vbak
+      waste_bronze_table: bronze_sap.vbak_waste
+      waste_silver_table: silver_sap.vbak_waste
+
+    primary_keys:
+      - mandt
+      - vbeln
+      - erdat
+      - audat
+
+    schema_validation:
+      allow_extra_columns: false
+      missing_columns_action: QUARANTINE
+      extra_columns_action: QUARANTINE
+
+    columns:
+
+      - name: mandt
+        source_type: string
+        bronze_type: string
+        silver_type: string
+        nullable: false
+
+      - name: vbeln
+        source_type: string
+        bronze_type: string
+        silver_type: string
+        nullable: false
+
+      - name: erdat
+        source_type: string
+        bronze_type: string
+        silver_type: date
+        format: "yyyyMMdd"
+        nullable: false
+
+      - name: erzet
+        source_type: string
+        bronze_type: string
+        silver_type: string
+        nullable: true
+        default: "000000"
+
+      - name: ernam
+        source_type: string
+        bronze_type: string
+        silver_type: string
+        nullable: true
+        default: "UNKNOWN"
+
+      - name: angdt
+        source_type: string
+        bronze_type: string
+        silver_type: date
+        format: "yyyyMMdd"
+        nullable: true
+        default: null
+
+      - name: bnddt
+        source_type: string
+        bronze_type: string
+        silver_type: date
+        format: "yyyyMMdd"
+        nullable: true
+        default: null
+
+      - name: audat
+        source_type: string
+        bronze_type: string
+        silver_type: date
+        format: "yyyyMMdd"
+        nullable: false
+
+      - name: vbtyp
+        source_type: string
+        bronze_type: string
+        silver_type: string
+        nullable: true
+        default: "C"
+
+      - name: trvog
+        source_type: string
+        bronze_type: string
+        silver_type: string
+        nullable: true
+        default: "0"
